@@ -1,0 +1,66 @@
+body { margin: 0; padding: 0; background: #f7f7f7; }
+label { display:block; }
+input,select,textarea { width:100%; padding:8px; box-sizing:border-box; }
+button { padding:8px 16px }
+
+.slot-grid { background: white; border-radius:8px; padding:12px; box-shadow:0 4px 14px rgba(0,0,0,0.06) }
+.grid-header { display:flex; align-items:center; border-bottom:1px solid #eee; padding-bottom:8px; margin-bottom:8px }
+.time-col { width:160px; padding:8px; color:#666 }
+.court-col { flex:1; padding:8px; font-weight:600 }
+.grid-body { display:flex; flex-direction:column; gap:8px }
+.grid-row { display:flex; align-items:center }
+.cell { flex:1; padding:12px; margin:6px; background:#f3fff4; border:1px solid #e0f4e7; border-radius:6px; text-align:center; cursor:pointer }
+.cell.booked { background:#fff3f3; border-color:#ffdede; color:#a00; cursor:not-allowed }
+.cell.selected { background:#dceff0; border-color:#6fb3b7 }
+
+:root{
+	--brand-1: #073b34;
+	--brand-2: #6fb3b7;
+	--accent: #ff9f1c;
+	--bg: linear-gradient(180deg,#f0fbf8 0%, #f7fff9 100%);
+}
+
+body{ background: var(--bg); font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial }
+
+.app-header{ display:flex; align-items:center; gap:16px; padding:20px; max-width:1100px; margin:18px auto }
+.brand-title{ color:var(--brand-1); font-weight:700; font-size:20px }
+.brand-sub{ color:var(--brand-2); font-size:12px }
+
+.slot-grid{ transition: transform .18s ease, box-shadow .18s ease }
+.slot-grid:hover{ transform: translateY(-4px); box-shadow:0 8px 30px rgba(7,59,52,0.08) }
+
+.cell{ transition: transform .12s ease, box-shadow .12s ease }
+.cell:hover{ transform: translateY(-4px); box-shadow:0 6px 18px rgba(0,0,0,0.06) }
+
+.btn-animate{ background:var(--brand-1); color:white; border:none; padding:10px 18px; border-radius:10px; font-weight:700; display:inline-flex; gap:10px; align-items:center }
+.btn-animate:active{ transform: scale(.98) }
+
+.flying-ball{ position:fixed; left:20%; top:50%; width:48px; height:48px; pointer-events:none; z-index:9999; animation: throw 900ms cubic-bezier(.22,.9,.35,1) forwards }
+
+@keyframes throw {
+	0% { transform: translate(0,0) scale(0.6); opacity:1 }
+	60% { transform: translate(40vw,-30vh) rotate(360deg) scale(1) }
+	100% { transform: translate(80vw,-60vh) rotate(720deg) scale(0.4); opacity:0 }
+}
+
+.toast-success{ background:linear-gradient(90deg, #dff6f3, #e6fff9); padding:12px 16px; border-radius:8px; color:var(--brand-1); box-shadow:0 6px 18px rgba(7,59,52,0.06) }
+
+/* Themed date picker */
+.date-picker{ display:flex; flex-direction:column; gap:6px }
+.date-label{ font-size:12px; color:var(--brand-1); font-weight:600 }
+.date-control{ display:flex; align-items:center; background: linear-gradient(90deg,#ffffff,#f3fff4); padding:6px; border-radius:10px; border:1px solid rgba(7,59,52,0.06) }
+.date-input{ border:0; background:transparent; padding:8px 10px; font-weight:600; color:var(--brand-1); width:160px }
+.date-input::-webkit-calendar-picker-indicator{ display:none; }
+.calendar-btn{ border:0; background:var(--brand-2); color:white; padding:6px 8px; border-radius:8px; font-weight:700; cursor:pointer }
+.calendar-btn:active{ transform:scale(.98) }
+
+.date-control:focus-within{ box-shadow:0 10px 30px rgba(111,179,183,0.08) }
+
+/* Full-page background image (place your photo at src/assets/bg.jpg) */
+.app-bg{ position:fixed; inset:0; background-position:center; background-size:cover; background-repeat:no-repeat; background-attachment:fixed; filter: blur(2px) brightness(0.55); z-index:-2 }
+.app-bg::after{ content:''; position:absolute; inset:0; background: linear-gradient(180deg, rgba(7,59,52,0.06), rgba(7,59,52,0.06)); }
+
+.app-container{ position:relative; z-index:1 }
+
+/* extra top padding so absolute top-left controls do not overlap grid/header */
+.app-container{ padding-top:80px }
