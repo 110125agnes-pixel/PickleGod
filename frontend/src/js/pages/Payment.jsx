@@ -33,7 +33,13 @@ export default function Payment(){
   useEffect(()=>{
     // if timer reaches zero, mark expired (clear draft)
     if(secondsLeft === 0){
-      setMsg('Payment time expired. Please restart booking.')
+      setMsg('Payment time expired. Redirecting to bookings...')
+      try{
+        sessionStorage.removeItem('bookingDraft')
+        // signal SlotGrid to clear visual selection after redirect
+        sessionStorage.setItem('expiredRedirect','1')
+      }catch(_){ }
+      setTimeout(()=>{ window.location.hash = '#/'; }, 800)
     }
   },[secondsLeft])
 

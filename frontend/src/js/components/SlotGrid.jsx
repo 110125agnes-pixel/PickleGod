@@ -48,6 +48,17 @@ export default function SlotGrid(){
       .catch(()=>setCourts([]))
   },[])
 
+  // clear selection if we were redirected from an expired payment
+  useEffect(()=>{
+    try{
+      const exp = sessionStorage.getItem('expiredRedirect')
+      if(exp){
+        setSelected([])
+        sessionStorage.removeItem('expiredRedirect')
+      }
+    }catch(_){ }
+  },[])
+
   useEffect(()=>{
     fetchBookings()
   },[date])
@@ -289,8 +300,8 @@ export default function SlotGrid(){
                     phone
                   },
                   txnId: makeTxnId(),
-                  // expiry timestamp (ms) - 30 seconds for quick test
-                  expiry: Date.now() + (30 * 1000)
+                  // expiry timestamp (ms)
+                  expiry: Date.now() + (5 * 1000)
                 }
                 sessionStorage.setItem('bookingDraft', JSON.stringify(draft))
                 // navigate to payment page
