@@ -169,6 +169,12 @@ export default function SlotGrid(){
         </div>
         <img src={Logo} alt="logo" style={{height:44}} />
         <img src={Paddle} alt="paddle" style={{marginLeft:'auto',height:36,opacity:0.95}} />
+        <button
+          onClick={()=>{ window.location.hash = '#/admin' }}
+          style={{marginLeft:16,padding:'6px 14px',borderRadius:8,border:'1px solid rgba(7,59,52,0.2)',background:'rgba(7,59,52,0.06)',color:'var(--brand-1)',fontWeight:600,cursor:'pointer',fontSize:13}}
+        >
+          Admin
+        </button>
       </header>
 
       {/* top-left brand removed per request */}

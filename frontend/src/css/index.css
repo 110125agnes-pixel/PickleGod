@@ -64,3 +64,62 @@ body{ background: var(--bg); font-family: Inter, system-ui, -apple-system, 'Sego
 
 /* extra top padding so absolute top-left controls do not overlap grid/header */
 .app-container{ padding-top:80px }
+
+/* ═══════════════════════════════════════════════════════════
+   ADMIN PANEL
+═══════════════════════════════════════════════════════════ */
+.adm-layout{ display:flex; min-height:100vh; background:#f0f5ff }
+
+/* Sidebar */
+.adm-sidebar{ width:220px; min-width:220px; background:#1e3a8a; display:flex; flex-direction:column; border-right:1px solid #1e40af }
+.adm-logo-wrap{ display:flex; justify-content:center; align-items:center; padding:28px 20px 20px }
+.adm-logo{ width:90px; height:90px; border-radius:50%; object-fit:cover; border:3px solid rgba(255,255,255,0.35) }
+
+.adm-nav{ display:flex; flex-direction:column; gap:4px; padding:0 10px }
+.adm-nav-item{ display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px; border:none; background:transparent; cursor:pointer; font-size:14px; font-family:inherit; color:#dbeafe; text-align:left; width:100%; transition:background .15s }
+.adm-nav-item:hover{ background:rgba(255,255,255,0.12) }
+.adm-nav-item.active{ background:rgba(255,255,255,0.22) }
+.adm-nav-group{ font-weight:600 }
+.adm-nav-arrow{ margin-left:auto; font-size:11px; color:#93c5fd; transition:transform .2s }
+.adm-nav-group.open .adm-nav-arrow{ transform:rotate(90deg) }
+.adm-nav-sub{ display:flex; flex-direction:column; gap:2px; padding-left:10px }
+.adm-nav-subitem{ font-size:13px; padding:8px 12px }
+
+/* Main content */
+.adm-main{ flex:1; padding:32px 36px; overflow-y:auto }
+
+/* Panel card */
+.adm-panel{ background:#f8fbff; border-radius:12px; padding:28px 28px 20px; max-width:900px; margin:0 auto; box-shadow:0 2px 16px rgba(30,58,138,0.07) }
+.adm-panel-title{ margin:0 0 20px; font-size:22px; font-weight:700; color:#1e3a8a }
+.adm-loading{ color:#888; margin-bottom:12px; font-size:13px }
+
+/* Table */
+.adm-table-wrap{ overflow-x:auto; border-radius:8px }
+.adm-table{ width:100%; border-collapse:collapse; font-size:14px }
+.adm-table th{ background:#dbeafe; color:#1e3a8a; font-weight:600; padding:10px 14px; text-align:left; white-space:nowrap }
+.adm-table th:first-child{ border-radius:8px 0 0 0 }
+.adm-table th:last-child{ border-radius:0 8px 0 0 }
+.adm-table td{ padding:10px 14px; border-bottom:1px solid #e0eaff; background:#fff; color:#333; white-space:nowrap }
+.adm-table tr:last-child td{ border-bottom:none }
+.adm-table tr:hover td{ background:#f0f5ff }
+.adm-empty{ text-align:center; color:#aaa; padding:28px !important; background:#fff }
+
+/* Action button */
+.adm-btn-view{ background:none; border:none; color:#2563eb; font-weight:600; font-size:13px; cursor:pointer; padding:0; text-decoration:underline }
+.adm-btn-view:hover{ color:#1d4ed8 }
+
+/* Pagination */
+.adm-pagination{ display:flex; align-items:center; justify-content:center; gap:14px; margin-top:18px; font-size:14px; color:#555 }
+.adm-page-btn{ border:1px solid #bfdbfe; background:#dbeafe; border-radius:6px; width:30px; height:30px; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; transition:background .15s; color:#1e3a8a }
+.adm-page-btn:hover:not(:disabled){ background:#bfdbfe }
+.adm-page-btn:disabled{ opacity:0.4; cursor:not-allowed }
+
+/* Calendar – Manage Unavailable Dates */
+.adm-cal-date-wrap{ position:relative; display:inline-flex; align-items:center }
+.adm-cal-date-input{ padding:8px 36px 8px 12px; border-radius:8px; border:1px solid #ccc; font-size:14px; background:#fff; color:#333 }
+.adm-cal-date-icon{ position:absolute; right:10px; pointer-events:none; color:#888; display:flex }
+.adm-cal-reason-input{ padding:8px 12px; border-radius:8px; border:1px solid #ccc; font-size:14px; width:220px; background:#fff; color:#333 }
+.adm-btn-add{ padding:8px 18px; border-radius:8px; border:none; background:#2563eb; color:#fff; font-weight:600; font-size:14px; cursor:pointer }
+.adm-btn-add:hover{ background:#1d4ed8 }
+.adm-icon-btn{ background:none; border:none; cursor:pointer; padding:2px; display:flex; align-items:center }
+.adm-icon-btn:hover{ opacity:0.7 }
