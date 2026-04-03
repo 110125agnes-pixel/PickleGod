@@ -62,16 +62,24 @@ export default function Payment(){
       return
     }
     try{
-      const promises = draft.selected.map(s => axios.post('/api/bookings', {
-        courtId: s.courtId,
-        date: draft.date,
-        time: s.time,
-        description: receipt ? `receipt:${receipt}` : ''
-      }))
-      const results = await Promise.all(promises)
-      // clear draft and navigate home
+      await axios.post('/api/payments', {
+        name: draft.customer ? draft.customer.fullName : '',
+        email: draft.customer ? draft.customer.email : '',
+        phone: draft.customer ? draft.customer.phone : '',
+        paymentMethod: 'GCASH',
+        status: 'PENDING',
+        slots: draft.selected.map(s => ({
+          courtId: s.courtId,
+          date: s.date || draft.date,
+          time: s.time,
+        })),
+        totalPrice: total,
+        pricePerSlot: draft.pricePerSlot,
+        txnId: draft.txnId || '',
+        receipt: receipt || '',
+      })
       sessionStorage.removeItem('bookingDraft')
-      setMsg('Payment success — bookings created')
+      setMsg('Payment submitted successfully!')
       setTimeout(()=>{ window.location.hash = '#/'; }, 1200)
     }catch(err){
       const e = err.response && err.response.data && err.response.data.error ? err.response.data.error : err.message

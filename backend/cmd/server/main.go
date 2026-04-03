@@ -25,11 +25,34 @@ type Booking struct {
 	CreatedAt   time.Time `json:"createdAt"`
 }
 
+type Slot struct {
+	CourtID int    `json:"courtId"`
+	Date    string `json:"date"`
+	Time    string `json:"time"`
+}
+
+type PaymentGroup struct {
+	ID            int       `json:"id"`
+	Name          string    `json:"name"`
+	Email         string    `json:"email"`
+	Phone         string    `json:"phone"`
+	PaymentMethod string    `json:"paymentMethod"`
+	Status        string    `json:"status"`
+	Slots         []Slot    `json:"slots"`
+	TotalPrice    int       `json:"totalPrice"`
+	PricePerSlot  int       `json:"pricePerSlot"`
+	TxnId         string    `json:"txnId"`
+	Receipt       string    `json:"receipt"`
+	CreatedAt     time.Time `json:"createdAt"`
+}
+
 var (
 	mu         sync.Mutex
 	courts     []Court
 	bookings   []Booking
 	nextBookID = 1
+	payments   []PaymentGroup
+	nextPayID  = 1
 )
 
 func init() {
@@ -47,7 +70,7 @@ func withCORS(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,DELETE,PATCH,OPTIONS")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
 			return
@@ -158,10 +181,141 @@ func bookingsIDHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func paymentsHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	switch r.Method {
+	case http.MethodGet:
+		mu.Lock()
+		ps := make([]PaymentGroup, len(payments))
+		copy(ps, payments)
+		mu.Unlock()
+		json.NewEncoder(w).Encode(ps)
+	case http.MethodPost:
+		var pg PaymentGroup
+		if err := json.NewDecoder(r.Body).Decode(&pg); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "invalid payload"})
+			return
+		}
+		if pg.Name == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "name is required"})
+			return
+		}
+		if len(pg.Slots) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "slots are required"})
+			return
+		}
+		mu.Lock()
+		pg.ID = nextPayID
+		nextPayID++
+		pg.CreatedAt = time.Now()
+		if pg.Status == "" {
+			pg.Status = "PENDING"
+		}
+		if pg.PaymentMethod == "" {
+			pg.PaymentMethod = "GCASH"
+		}
+		for _, slot := range pg.Slots {
+			b := Booking{
+				ID:          nextBookID,
+				CourtID:     slot.CourtID,
+				Date:        slot.Date,
+				Time:        slot.Time,
+				Description: fmt.Sprintf("pay:%d", pg.ID),
+				CreatedAt:   pg.CreatedAt,
+			}
+			nextBookID++
+			bookings = append(bookings, b)
+		}
+		payments = append(payments, pg)
+		mu.Unlock()
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(pg)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func paymentsIDHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	idStr := strings.TrimPrefix(r.URL.Path, "/payments/")
+	parts := strings.SplitN(idStr, "/", 2)
+	id, err := strconv.Atoi(parts[0])
+	if err != nil || id == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid id"})
+		return
+	}
+	if len(parts) == 2 && parts[1] == "status" {
+		if r.Method != http.MethodPatch {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		var body struct {
+			Status string `json:"status"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Status == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "status required"})
+			return
+		}
+		mu.Lock()
+		found := false
+		for i, p := range payments {
+			if p.ID == id {
+				payments[i].Status = body.Status
+				found = true
+				break
+			}
+		}
+		mu.Unlock()
+		if !found {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]string{"ok": "updated"})
+		return
+	}
+	switch r.Method {
+	case http.MethodDelete:
+		mu.Lock()
+		found := false
+		for i, p := range payments {
+			if p.ID == id {
+				descPrefix := fmt.Sprintf("pay:%d", id)
+				newBs := make([]Booking, 0, len(bookings))
+				for _, b := range bookings {
+					if b.Description != descPrefix {
+						newBs = append(newBs, b)
+					}
+				}
+				bookings = newBs
+				payments = append(payments[:i], payments[i+1:]...)
+				found = true
+				break
+			}
+		}
+		mu.Unlock()
+		if !found {
+			w.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]string{"ok": "deleted"})
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
 func main() {
 	http.HandleFunc("/courts", withCORS(courtsHandler))
 	http.HandleFunc("/bookings", withCORS(bookingsHandler))
 	http.HandleFunc("/bookings/", withCORS(bookingsIDHandler))
+	http.HandleFunc("/payments", withCORS(paymentsHandler))
+	http.HandleFunc("/payments/", withCORS(paymentsIDHandler))
 	fmt.Println("Server listening on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

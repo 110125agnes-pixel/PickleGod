@@ -307,7 +307,7 @@ export default function SlotGrid(){
                   },
                   txnId: makeTxnId(),
                   // expiry timestamp (ms)
-                  expiry: Date.now() + (5 * 1000)
+                  expiry: Date.now() + (3 * 60 * 1000)
                 }
                 sessionStorage.setItem('bookingDraft', JSON.stringify(draft))
                 // navigate to payment page
