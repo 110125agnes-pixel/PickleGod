@@ -3,13 +3,16 @@ import os
 from datetime import datetime
 from typing import List, Optional
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import (Column, Integer, String, Text, DateTime, create_engine, ForeignKey)
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 
-DATABASE_URL = os.getenv('DATABASE_DSN', 'mysql+pymysql://root:root@127.0.0.1:3306/booking_system')
+DATABASE_URL = os.getenv('DATABASE_DSN')
 
 engine = create_engine(DATABASE_URL, echo=False, future=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
@@ -113,11 +116,12 @@ class StatusUpdate(BaseModel):
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
+    # During development allow all origins; lock this down for production to specific origins
     allow_origins=["*"],
     allow_methods=["GET", "POST", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
+    allow_credentials=True,
 )
-
 
 def ensure_schema_and_defaults():
     Base.metadata.create_all(bind=engine)

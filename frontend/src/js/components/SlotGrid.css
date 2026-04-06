@@ -1,0 +1,88 @@
+.slotgrid-container{ max-width:1100px; margin:20px auto }
+.slotgrid-header{ display:flex; align-items:center; gap:16px; padding:20px; max-width:1100px; margin:18px auto }
+.header-logo{ height:44px }
+.header-paddle{ margin-left:auto; height:36px; opacity:0.95 }
+.legend-row{ display:flex; gap:8px; align-items:center; margin:8px 0 18px 0 }
+.legend-list{ margin-left:auto; display:flex; gap:8px }
+.controls-row{ display:flex; gap:12px; align-items:center; margin:8px 0 18px 0 }
+.top-actions{ align-items:center; gap:12px; margin-left:8px }
+.slot-grid{ /* keep existing styles in index.css; this file can add overrides if needed */ }
+
+.chip{ padding:6px 10px; border-radius:14px; font-size:13px }
+.chip-available{ background:#e9fbf5; color:#146b4f; border:1px solid rgba(20,107,79,0.08) }
+.chip-selected{ background:#0b5f4a; color:#fff }
+.chip-pending{ background:#eef6ff; color:#2a6fb9 }
+.chip-booked{ background:#e9fff4; color:#0b7a4e; border:1px solid rgba(11,122,78,0.06) }
+
+.top-actions{ display:flex; align-items:center; gap:12px }
+
+.floating-panel{ position:fixed; left:0; right:0; bottom:18px; display:flex; justify-content:center; pointer-events:none; z-index:9998 }
+.floating-panel-inner{ width: min(980px,95%); pointer-events:auto; background:#fff; border-radius:10px; box-shadow:0 8px 30px rgba(0,0,0,0.12); padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px }
+.selected-info{ display:flex; align-items:center; gap:12px }
+.selected-info .count{ font-weight:800 }
+.selected-actions{ display:flex; align-items:center; gap:8px }
+.selected-actions button:first-child{ border:none; background:transparent; color:#666 }
+.selected-actions .proceed-btn{ background:#0b4f4b; color:#fff; padding:10px 18px; border-radius:8px }
+
+/* Floating bar for quick checkout */
+.floating-bar{ position:fixed; left:0; right:0; bottom:18px; display:flex; justify-content:center; z-index:9999 }
+.floating-bar-inner{ width: min(980px,95%); background:#fff; border-radius:10px; padding:10px 14px; box-shadow:0 8px 30px rgba(0,0,0,0.08); display:flex; align-items:center; justify-content:space-between; gap:12px }
+.floating-bar-left{ display:flex; align-items:center; gap:12px }
+.floating-bar-left .label{ font-size:12px; color:#666 }
+.floating-bar-left .count{ font-weight:800 }
+.floating-bar-left .total{ color:#666 }
+.floating-bar-action .btn-proceed{ background:#14794f; color:#fff; padding:10px 18px; border-radius:8px; border:none; font-weight:700; cursor:pointer }
+.floating-bar-action .btn-proceed:disabled{ opacity:0.5; cursor:not-allowed }
+
+/* fade-in-up animation for the floating bar */
+@keyframes fadeInUp {
+	from { opacity: 0; transform: translateY(8px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+.floating-bar-inner{ animation: fadeInUp 260ms cubic-bezier(.2,.9,.25,1); }
+
+/* App background */
+.app-bg{ position: fixed; inset: 0; z-index: -1; background-repeat: no-repeat; background-size: cover; background-position: center }
+
+/* Brand */
+.brand-info{ margin-right:8px }
+.brand-title{ font-size:18px; font-weight:800 }
+.brand-sub{ font-size:13px; color:#666 }
+
+/* Date picker */
+.date-picker{ display:flex; flex-direction:column }
+.date-label{ font-size:12px; color:#666; margin-bottom:6px }
+.date-control{ display:flex; gap:8px; align-items:center }
+.date-input{ padding:8px; border-radius:6px; border:1px solid #ddd }
+.calendar-btn{ padding:6px 8px; border-radius:6px; border:1px solid #ddd; background:transparent; cursor:pointer }
+
+/* Limit modal */
+.modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:9999 }
+.modal-card{ width:420px; max-width:95%; background:#fff; border-radius:10px; padding:20px; box-shadow:0 10px 40px rgba(0,0,0,0.3) }
+.limit-modal-center{ display:flex; align-items:center; flex-direction:column; gap:8px }
+.limit-icon{ width:56px; height:56px; border-radius:28px; background:#fff6e6; display:flex; align-items:center; justify-content:center; border:1px solid #f2d59a }
+.limit-title{ margin:6px 0 }
+.limit-text{ color:#444; text-align:center; margin-bottom:12px }
+.limit-ok{ width:100%; background:#144b48; color:#fff; padding:10px 12px; border-radius:8px; border:none }
+
+/* Undo toast */
+.undo-toast{ position:fixed; right:24px; bottom:24px; display:flex; gap:8px; align-items:center }
+.undo-toast .toast-success{ background: #fff; padding:8px 12px; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.06) }
+.undo-toast .undo-btn{ margin-left:8px }
+
+/* Pending banner shown when user minimizes the pending modal */
+.pending-top-banner{ width: min(1100px,95%); margin:12px auto; background:#eef6ff; border:1px solid #d6eef8; border-radius:10px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between; gap:12px }
+.pending-banner-left{ display:flex; align-items:center; gap:12px }
+.pending-banner-icon{ width:36px; height:36px; border-radius:18px; background:#fff; display:flex; align-items:center; justify-content:center; color:#0b6fb0; font-size:18px; border:1px solid #e6f1fb }
+.pending-banner-title{ font-weight:800; color:#0b6fb0; font-size:14px }
+.pending-banner-sub{ color:#666; font-size:13px }
+.pending-banner-actions{ display:flex; align-items:center; gap:8px }
+.btn-resume{ background:#0b6fb0; color:#fff; border:none; padding:8px 12px; border-radius:8px; font-weight:700; cursor:pointer }
+.btn-resume:hover{ opacity:0.96 }
+.pending-banner-close{ background:transparent; border:none; font-size:16px; color:#666; padding:6px; cursor:pointer; border-radius:6px }
+.pending-banner-close:hover{ background: rgba(0,0,0,0.04) }
+
+/* modal close X */
+.pending-modal-close{ position:absolute; right:10px; top:10px; border:none; background:transparent; font-size:18px; color:#666; cursor:pointer; padding:6px; border-radius:6px }
+.pending-modal-close:hover{ background: rgba(0,0,0,0.04) }
+

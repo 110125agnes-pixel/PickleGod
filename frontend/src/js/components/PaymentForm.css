@@ -1,0 +1,22 @@
+.payment-container{
+  max-width:920px;
+  margin:24px auto;
+  padding:20px;
+  background:#fff;
+  border-radius:8px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.08);
+}
+.payment-top{ display:flex; justify-content:space-between; align-items:center }
+.payment-timer{ background:#e8f7ff; color:#0b6fb0; padding:8px 12px; border-radius:8px; font-weight:700 }
+.scan-column{ flex:1 }
+.details-column{ width:360px }
+.payment-summary{ border-top:1px solid #eee; padding-top:12px; margin-bottom:12px }
+.payment-line{ display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #fafafa }
+.receipt-area{ margin-top:12px }
+.receipt-preview{ margin-top:8px; display:flex; align-items:center; gap:12px }
+.receipt-preview img{ width:120px; border-radius:6px; box-shadow:0 6px 18px rgba(0,0,0,0.08) }
+.payment-actions{ display:flex; gap:8px; justify-content:flex-end }
+.btn{ padding:8px 12px; border-radius:8px }
+.btn-primary{ background:#144b48; color:#fff; border:none }
+.btn-cancel{ background:#e53935; color:#fff; border:none }
+.toast-success{ margin-top:12px }

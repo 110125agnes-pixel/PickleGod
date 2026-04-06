@@ -12,6 +12,7 @@ button { padding:8px 16px }
 .cell { flex:1; padding:12px; margin:6px; background:#f3fff4; border:1px solid #e0f4e7; border-radius:6px; text-align:center; cursor:pointer }
 .cell.booked { background:#fff3f3; border-color:#ffdede; color:#a00; cursor:not-allowed }
 .cell.selected { background:#dceff0; border-color:#6fb3b7 }
+.cell.pending { background: #ff7a1a; border-color: #ff7a1a; color: #fff; font-weight:800; box-shadow: 0 6px 18px rgba(255,122,26,0.14); cursor:not-allowed }
 
 :root{
 	--brand-1: #073b34;
@@ -27,10 +28,12 @@ body{ background: var(--bg); font-family: Inter, system-ui, -apple-system, 'Sego
 .brand-sub{ color:var(--brand-2); font-size:12px }
 
 .slot-grid{ transition: transform .18s ease, box-shadow .18s ease }
-.slot-grid:hover{ transform: translateY(-4px); box-shadow:0 8px 30px rgba(7,59,52,0.08) }
+/* remove lift-on-hover effect for the whole grid */
+.slot-grid:hover{ transform: none; box-shadow: none }
 
 .cell{ transition: transform .12s ease, box-shadow .12s ease }
-.cell:hover{ transform: translateY(-4px); box-shadow:0 6px 18px rgba(0,0,0,0.06) }
+/* remove lift-on-hover effect for individual cells */
+.cell:hover{ transform: none; box-shadow: none }
 
 .btn-animate{ background:var(--brand-1); color:white; border:none; padding:10px 18px; border-radius:10px; font-weight:700; display:inline-flex; gap:10px; align-items:center }
 .btn-animate:active{ transform: scale(.98) }
@@ -115,11 +118,4 @@ body{ background: var(--bg); font-family: Inter, system-ui, -apple-system, 'Sego
 .adm-page-btn:disabled{ opacity:0.4; cursor:not-allowed }
 
 /* Calendar – Manage Unavailable Dates */
-.adm-cal-date-wrap{ position:relative; display:inline-flex; align-items:center }
-.adm-cal-date-input{ padding:8px 36px 8px 12px; border-radius:8px; border:1px solid #ccc; font-size:14px; background:#fff; color:#333 }
-.adm-cal-date-icon{ position:absolute; right:10px; pointer-events:none; color:#888; display:flex }
-.adm-cal-reason-input{ padding:8px 12px; border-radius:8px; border:1px solid #ccc; font-size:14px; width:220px; background:#fff; color:#333 }
-.adm-btn-add{ padding:8px 18px; border-radius:8px; border:none; background:#2563eb; color:#fff; font-weight:600; font-size:14px; cursor:pointer }
-.adm-btn-add:hover{ background:#1d4ed8 }
-.adm-icon-btn{ background:none; border:none; cursor:pointer; padding:2px; display:flex; align-items:center }
-.adm-icon-btn:hover{ opacity:0.7 }
+/* Calendar – Manage Unavailable Dates (removed) */

@@ -1,0 +1,30 @@
+.booking-modal-backdrop{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.booking-modal{
+  width: 420px;
+  max-width: 95%;
+  background: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+}
+.booking-modal h3{ margin-top:0 }
+.booking-summary{
+  background:#f6f8f9;
+  padding:12px;
+  border-radius:8px;
+  margin-bottom:12px;
+}
+.booking-summary .row{ display:flex; justify-content:space-between; padding-top:8px }
+.booking-input{ width:100%; padding:10px; border-radius:6px; border:1px solid #ddd }
+.booking-input.error{ border:2px solid #e03b3b }
+.booking-actions{ display:flex; gap:8px; justify-content:flex-end }
+.btn-secondary{ padding:8px 12px; border-radius:8px; background:transparent; border:1px solid #ddd }
+.btn-primary{ padding:10px 12px; border-radius:8px; background:#2c6b67; color:#fff; border:none }

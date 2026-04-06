@@ -3,27 +3,16 @@ import axios from 'axios'
 import Logo from '../../assets/logo.svg'
 import Paddle from '../../assets/paddle.svg'
 import Ball from '../../assets/ball.svg'
-
-function timesBetween(startHour = 9, endHour = 23) {
-  const times = []
-  function format12(h) {
-    const hour = h % 12 === 0 ? 12 : h % 12
-    const ampm = h < 12 ? 'AM' : 'PM'
-    return `${hour}:00 ${ampm}`
-  }
-  for (let h = startHour; h < endHour; h++) {
-    const from24 = `${String(h).padStart(2,'0')}:00`
-    const to24 = `${String(h+1).padStart(2,'0')}:00`
-    const fromLabel = format12(h)
-    const toLabel = format12(h+1)
-    times.push({ label: `${fromLabel} - ${toLabel}`, time: from24, display: fromLabel })
-  }
-  return times
-}
+import './SlotGrid.css'
+import BookingModal from './BookingModal'
+import { timesBetween, formatTimer } from '../utils/time-utils'
+import SlotGridView from './slot-grid/SlotGridView'
 
 export default function SlotGrid(){
   const [courts, setCourts] = useState([])
   const [bookings, setBookings] = useState([])
+  const [payments, setPayments] = useState([])
+  const [reservedMap, setReservedMap] = useState({})
   const [date, setDate] = useState(new Date().toISOString().slice(0,10))
   const [selected, setSelected] = useState([])
   const [showLimitModal, setShowLimitModal] = useState(false)
@@ -38,9 +27,191 @@ export default function SlotGrid(){
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [formErrors, setFormErrors] = useState({})
+    const [pendingPayment, setPendingPayment] = useState(null)
+    const [pendingSecondsLeft, setPendingSecondsLeft] = useState(null)
+    const [showPendingModal, setShowPendingModal] = useState(false)
+    const [showPendingBanner, setShowPendingBanner] = useState(()=>{
+      try{
+        const suppressed = (typeof localStorage !== 'undefined' && localStorage.getItem('suppressPendingModal') === '1') || (sessionStorage.getItem && sessionStorage.getItem('suppressPendingModal') === '1')
+        if(suppressed){ try{ localStorage.removeItem('suppressPendingModal') }catch(_){ } try{ sessionStorage.removeItem('suppressPendingModal') }catch(_){ } return false }
+        return sessionStorage.getItem('pendingBanner') === '1'
+      }catch(_){ return false }
+    })
 
-  const times = timesBetween(9, 23)
+    const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+
+    function handleCloseToBanner(){
+      setShowPendingModal(false)
+      setShowPendingBanner(true)
+      try{ sessionStorage.setItem('pendingBanner','1') }catch(_){ }
+    }
+
+    function dismissBanner(){
+      setShowPendingBanner(false)
+      try{ sessionStorage.removeItem('pendingBanner') }catch(_){ }
+    }
+
+    function resumePayment(){
+      try{
+        const raw = sessionStorage.getItem('recentPayment')
+        if(raw){
+          const parsed = JSON.parse(raw)
+          try{ window.dispatchEvent(new CustomEvent('recentPaymentSaved', { detail: parsed })) }catch(_){ }
+        }
+      }catch(_){ }
+      try{ window.location.hash = '#/payment' }catch(_){ }
+    }
+
+  // configuration (make non-hardcoded/easy to change)
+  const START_HOUR = 9
+  const END_HOUR = 23
+  const PRICE_PER_SLOT = 200
   const MAX_SELECTION = 6
+
+  const times = timesBetween(START_HOUR, END_HOUR)
+
+  // If returning from payment, immediately apply any recentPayment so pending
+  // slots show up without waiting for the API round-trip.
+  useEffect(()=>{
+    try{
+      const recent = sessionStorage.getItem('recentPayment')
+      if(recent){
+        const parsed = JSON.parse(recent)
+        // removed debug log
+        const map = {}
+        ;(parsed.slots||[]).forEach(s=>{
+          const k = `${s.courtId}|${s.date}|${s.time}`
+          map[k] = (parsed.status || 'PENDING').toUpperCase()
+        })
+        // merge with existing reservedMap
+        // only apply if not yet expired
+        if(!parsed.expiry || Date.now() < parsed.expiry){
+          setReservedMap(r=>({ ...(r||{}), ...map }))
+        } else {
+          // removed debug statement
+        }
+      }
+      // If there is an ongoing server-side payment id, ensure we fetch and apply it
+      try{
+        const op = sessionStorage.getItem('ongoingPaymentId')
+        if(op){
+          axios.get('/api/payments').then(r=>{
+            const p = (r.data||[]).find(x => String(x.id) === String(op))
+            if(p){
+              const map2 = {}
+              ;(p.slots||[]).forEach(s=>{ map2[`${s.courtId}|${s.date}|${s.time}`] = (p.status||'PENDING').toUpperCase() })
+              setReservedMap(rprev => ({ ...(rprev||{}), ...map2 }))
+                // also set pending modal data from server payment
+                try{
+                  const raw = sessionStorage.getItem('recentPayment')
+                  const parsedRecent = raw ? JSON.parse(raw) : null
+                  const expiry = parsedRecent && parsedRecent.expiry ? parsedRecent.expiry : null
+                  setPendingPayment({ ...p, expiry })
+                  if(expiry) setPendingSecondsLeft(Math.max(0, Math.floor((expiry - Date.now())/1000)))
+                    // Respect suppression flag (set when redirecting immediately after payment)
+                    const suppressed = (typeof localStorage !== 'undefined' && localStorage.getItem('suppressPendingModal') === '1') || (sessionStorage.getItem && sessionStorage.getItem('suppressPendingModal') === '1')
+                    if(suppressed){ try{ localStorage.removeItem('suppressPendingModal') }catch(_){ } try{ sessionStorage.removeItem('suppressPendingModal') }catch(_){ } }
+                    else {
+                      // Respect banner preference saved when user closed the modal
+                      const bannerPref = sessionStorage.getItem('pendingBanner') === '1'
+                      if(bannerPref){ setShowPendingBanner(true) } else { setShowPendingModal(true) }
+                    }
+                }catch(_){ }
+            }
+          }).catch(()=>{})
+        }
+      }catch(_){ }
+        // if there's a recentPayment in session, open pending modal (or banner if user chose to minimize)
+        try{
+          const rawRecent = sessionStorage.getItem('recentPayment')
+          if(rawRecent){
+            const parsedRecent = JSON.parse(rawRecent)
+            setPendingPayment(parsedRecent)
+            if(parsedRecent.expiry) setPendingSecondsLeft(Math.max(0, Math.floor((parsedRecent.expiry - Date.now())/1000)))
+            const suppressed = (typeof localStorage !== 'undefined' && localStorage.getItem('suppressPendingModal') === '1') || (sessionStorage.getItem && sessionStorage.getItem('suppressPendingModal') === '1')
+            if(suppressed){ try{ localStorage.removeItem('suppressPendingModal') }catch(_){ } try{ sessionStorage.removeItem('suppressPendingModal') }catch(_){ } }
+            else {
+              const bannerPref = sessionStorage.getItem('pendingBanner') === '1'
+              if(bannerPref){ setShowPendingBanner(true) } else { setShowPendingModal(true) }
+            }
+          }
+        }catch(_){ }
+    }catch(_){ }
+  }, [])
+
+    // update pending countdown while modal is visible
+      useEffect(()=>{
+        if(!showPendingModal && !showPendingBanner) return
+        const tid = setInterval(()=>{
+        try{
+          const raw = sessionStorage.getItem('recentPayment')
+          if(!raw) return
+          const parsed = JSON.parse(raw)
+              if(parsed && parsed.expiry){
+              const s = Math.max(0, Math.floor((parsed.expiry - Date.now())/1000))
+              setPendingSecondsLeft(s)
+              if(s <= 0){
+                // removed debug statement
+                try{ sessionStorage.removeItem('ongoingPaymentId') }catch(_){ }
+                setShowPendingModal(false)
+                setShowPendingBanner(false)
+                fetchPayments().catch(()=>{})
+              }
+            }
+        }catch(_){ }
+      }, 1000)
+      return ()=> clearInterval(tid)
+      },[showPendingModal, showPendingBanner])
+
+    async function cancelExistingBooking(){
+      try{
+        const op = sessionStorage.getItem('ongoingPaymentId')
+        if(op){
+            await axios.delete(`/api/payments/${op}`)
+        }
+      }catch(_){ }
+      try{ sessionStorage.removeItem('recentPayment') }catch(_){ }
+      try{ sessionStorage.removeItem('ongoingPaymentId') }catch(_){ }
+      try{ sessionStorage.removeItem('pendingBanner') }catch(_){ }
+      setShowPendingModal(false)
+      setShowPendingBanner(false)
+        try{
+          // ensure bookings and payments are refreshed from server so UI reflects deletion
+          await fetchBookings()
+          await fetchPayments()
+        }catch(_){ }
+        try{ window.dispatchEvent(new Event('refreshPayments')) }catch(_){ }
+    }
+  // Listen for recentPaymentSaved custom event (fired from Payment page)
+  useEffect(()=>{
+    function handleRecent(e){
+      try{
+        const parsed = e && e.detail ? e.detail : null
+        if(!parsed) return
+        // recentPaymentSaved event (debug removed)
+        const map = {}
+        ;(parsed.slots||[]).forEach(s=>{
+          const k = `${s.courtId}|${s.date}|${s.time}`
+          map[k] = (parsed.status || 'PENDING').toUpperCase()
+        })
+        // only apply if not expired
+        if(!parsed.expiry || Date.now() < parsed.expiry){
+          setReservedMap(r=>({ ...(r||{}), ...map }))
+        }
+      }catch(_){ }
+    }
+    window.addEventListener('recentPaymentSaved', handleRecent)
+
+    function handleRefresh(){
+      try{ fetchPayments().catch(()=>{}) }catch(_){ }
+    }
+    window.addEventListener('refreshPayments', handleRefresh)
+
+    return ()=>{
+      window.removeEventListener('recentPaymentSaved', handleRecent)
+      window.removeEventListener('refreshPayments', handleRefresh)
+    }
+  }, [])
 
   useEffect(()=>{
     axios.get('/api/courts')
@@ -48,32 +219,134 @@ export default function SlotGrid(){
       .catch(()=>setCourts([]))
   },[])
 
+  // fetch payment groups so we can mark pending vs approved reservations
+  function fetchPayments(){
+    return axios.get('/api/payments')
+      .then(r=>{
+        setPayments(r.data || [])
+        // build reserved map: key = `${courtId}|${date}|${time}` -> status
+        const map = {}
+        ;(r.data || []).forEach(pg=>{
+          const status = (pg.status || '').toUpperCase()
+          (pg.slots || []).forEach(s=>{
+            const k = `${s.courtId}|${s.date}|${s.time}`
+            map[k] = status
+          })
+        })
+        // Merge with any recent in-session payment so UI updates immediately
+        try{
+          const recent = sessionStorage.getItem('recentPayment')
+          if(recent){
+            const parsed = JSON.parse(recent)
+            ;(parsed.slots||[]).forEach(s=>{
+              const k = `${s.courtId}|${s.date}|${s.time}`
+              // only merge if not expired
+              if(!parsed.expiry || Date.now() < parsed.expiry){
+                map[k] = (parsed.status || 'PENDING').toUpperCase()
+              }
+            })
+          }
+        }catch(_){ }
+        // replace reservedMap with authoritative map from server
+        setReservedMap(map)
+      })
+      .catch(()=>{
+        // If fetching payments fails (e.g., backend down), don't clear existing
+        // reservedMap — instead preserve any in-session recentPayment so the
+        // pending UI remains visible and prevents double-booking in the UI.
+        setPayments([])
+        try{
+          const recent = sessionStorage.getItem('recentPayment')
+          if(recent){
+            const parsed = JSON.parse(recent)
+            const fallback = {}
+            ;(parsed.slots||[]).forEach(s=>{
+              const k = `${s.courtId}|${s.date}|${s.time}`
+              if(!parsed.expiry || Date.now() < parsed.expiry){
+                fallback[k] = (parsed.status || 'PENDING').toUpperCase()
+              }
+            })
+            setReservedMap(prev => ({ ...(prev || {}), ...fallback }))
+          }
+        }catch(_){ }
+      })
+  }
+
+  // If pending modal is shown, also apply immediate DOM fallback so the
+  // grid visually shows pending slots even if React state hasn't updated yet.
+  useEffect(()=>{
+    if(!showPendingModal || !pendingPayment) return
+    try{
+      const slots = pendingPayment.slots || pendingPayment.selected || []
+      slots.forEach(s => {
+        const key = `${s.courtId}|${s.date}|${s.time}`
+        const el = document.querySelector(`[data-slot-key="${key}"]`)
+        if(el){
+          el.classList.remove('selected')
+          el.classList.remove('booked')
+          if(!el.classList.contains('pending')) el.classList.add('pending')
+          try{ el.textContent = 'Pending' }catch(_){ }
+        }
+      })
+    }catch(_){ }
+  }, [showPendingModal, pendingPayment])
+
   // clear selection if we were redirected from an expired payment
   useEffect(()=>{
     try{
       const exp = sessionStorage.getItem('expiredRedirect')
       if(exp){
         setSelected([])
+        // refresh bookings/payments so pending markers are removed immediately
+        try{ fetchBookings().catch(()=>{}) }catch(_){ }
         sessionStorage.removeItem('expiredRedirect')
       }
     }catch(_){ }
   },[])
 
   useEffect(()=>{
+    // Periodically clear expired recentPayment entries so pending UI expires
+    const tid = setInterval(()=>{
+      try{
+        const raw = sessionStorage.getItem('recentPayment')
+        if(!raw) return
+        const parsed = JSON.parse(raw)
+        if(parsed && parsed.expiry && Date.now() >= parsed.expiry){
+          // removed debug statement
+          // refresh state from server to remove pending markers
+          fetchPayments().catch(()=>{})
+        }
+      }catch(_){ }
+    }, 1000)
+
+    // refresh bookings and payments when date changes
     fetchBookings()
+    fetchPayments()
+    return ()=> clearInterval(tid)
   },[date])
 
   function fetchBookings(){
     setLoading(true)
-    axios.get('/api/bookings')
+    return axios.get('/api/bookings')
       .then(r=>{
         setBookings(r.data.filter(b=>b.date === date))
+        return r.data
       })
-      .catch(()=>setBookings([]))
-      .finally(()=>setLoading(false))
+      .catch(()=>{
+        setBookings([])
+        return []
+      })
+      .finally(()=>{
+        setLoading(false)
+        // also refresh payments after bookings settled
+        fetchPayments().catch(()=>{})
+      })
   }
 
   function isBooked(courtId, time){
+    const key = `${courtId}|${date}|${time}`
+    // if reserved by a payment, treat as booked (but UI will show Pending if status is PENDING)
+    if(reservedMap[key]) return true
     return bookings.some(b=>b.courtId === courtId && b.time === time)
   }
 
@@ -128,16 +401,13 @@ export default function SlotGrid(){
       .finally(()=>setLoading(false))
   }
 
-  // price per slot (easy to change or fetch from API later)
-  const PRICE_PER_SLOT = 200
-
-  // perform the actual booking requests (called after user confirms in modal)
-  function performHoldSlots(){
-    if(selected.length===0) return
+  // centralised submit helper to avoid duplicated code
+  function submitBookings(slotsToHold = []){
+    if(!slotsToHold || slotsToHold.length === 0) return
     setShowPricingModal(false)
     setLoading(true)
     setMsg('')
-    const promises = selected.map(slot => axios.post('/api/bookings', {
+    const promises = slotsToHold.map(slot => axios.post('/api/bookings', {
       courtId: slot.courtId,
       date: slot.date,
       time: slot.time,
@@ -164,34 +434,86 @@ export default function SlotGrid(){
       .finally(()=>setLoading(false))
   }
 
-  function openPricingModal(){
-    if(selected.length===0) return
-    setShowPricingModal(true)
-  }
+  function openPricingModal(){ if(selected.length===0) return; setShowPricingModal(true) }
   
   return (
     <div>
       <div className="app-bg" style={{backgroundImage: bgUrl ? `url(${bgUrl})` : 'none'}} />
-      <div className="app-container" style={{maxWidth:1100,margin:'20px auto'}}>
-      <header className="app-header">
-        <div style={{marginRight:8}}>
+      <div className="app-container slotgrid-container">
+      <header className="app-header slotgrid-header">
+        <div className="brand-info">
+
+      {showPendingModal && pendingPayment && (
+        <div className="modal-backdrop">
+          <div className="modal-card" style={{maxWidth:560, position:'relative'}}>
+            <button className="pending-modal-close" onClick={handleCloseToBanner} aria-label="Close">✕</button>
+            <div style={{display:'flex',alignItems:'flex-start',gap:12}}>
+              <div style={{width:44,height:44,borderRadius:22,background:'#eef6ff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,color:'#2a6fb9'}}>
+                ℹ
+              </div>
+              <div style={{flex:1}}>
+                <h3 style={{margin:'0 0 8px 0'}}>You have a pending booking</h3>
+                <div style={{color:'#666'}}>You already have a pending booking that needs to be completed or cancelled before booking new slots.</div>
+
+                <div style={{marginTop:12,padding:12,borderRadius:8,background:'#f8fbff',border:'1px solid #e6eef0'}}>
+                  <div style={{fontWeight:800}}>Active Pending Booking</div>
+                  <div style={{fontSize:13,color:'#666',marginTop:6}}>
+                    You have {pendingPayment.slots ? pendingPayment.slots.length : (pendingPayment.selected ? pendingPayment.selected.length : 0)} slots reserved with a {Math.ceil((pendingPayment.expiry ? Math.max(0,(pendingPayment.expiry - Date.now())/60000) : 10))}-minute payment window.
+                  </div>
+                  {pendingSecondsLeft != null && (
+                    <div style={{marginTop:8,fontWeight:700,color:'#0b6fb0'}}>Expires in: {formatTimer(pendingSecondsLeft)}</div>
+                  )}
+                </div>
+
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:14}}>
+                  <div style={{color:'#666'}}>Please complete or cancel your existing booking before selecting new slots.</div>
+                    <div style={{display:'flex',gap:8}}>
+                    <button onClick={()=>setShowCancelConfirm(true)} style={{background:'#e53935',color:'#fff',border:'none',padding:'10px 14px',borderRadius:8}}>Cancel Existing Booking</button>
+                    <button onClick={()=>{ setShowPendingModal(false); try{ window.location.hash = '#/payment' }catch(_){ } }} style={{background:'#144b48',color:'#fff',border:'none',padding:'10px 14px',borderRadius:8}}>Continue with Existing Booking</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
           <div className="brand-title">Downtown Kinaladkad</div>
           <div className="brand-sub">Pickleball Hub — Reserve your court</div>
         </div>
-        <img src={Logo} alt="logo" style={{height:44}} />
-        <img src={Paddle} alt="paddle" style={{marginLeft:'auto',height:36,opacity:0.95}} />
-        <button
-          onClick={()=>{ window.location.hash = '#/admin' }}
-          style={{marginLeft:16,padding:'6px 14px',borderRadius:8,border:'1px solid rgba(7,59,52,0.2)',background:'rgba(7,59,52,0.06)',color:'var(--brand-1)',fontWeight:600,cursor:'pointer',fontSize:13}}
-        >
-          Admin
-        </button>
+        <img src={Logo} alt="logo" className="header-logo" />
+        <img src={Paddle} alt="paddle" className="header-paddle" />
       </header>
+
+      {showPendingBanner && pendingPayment && (
+        <div className="pending-top-banner">
+          <div className="pending-banner-left">
+            <div className="pending-banner-icon">🔔</div>
+            <div>
+              <div className="pending-banner-title">You have a pending booking!</div>
+              <div className="pending-banner-sub">Complete your payment to secure your slots. {pendingSecondsLeft != null ? `Expires in ${formatTimer(pendingSecondsLeft)}` : ''}</div>
+            </div>
+          </div>
+          <div className="pending-banner-actions">
+            <button className="btn-resume" onClick={resumePayment}>Resume Payment</button>
+            <button className="pending-banner-close" onClick={dismissBanner} aria-label="dismiss">✕</button>
+          </div>
+        </div>
+      )}
+
+      {/* Static legend / status chips for customer view (visual only) */}
+      <div className="legend-row">
+        <div className="legend-list">
+          <span className="chip chip-available">Available</span>
+          <span className="chip chip-selected">Selected</span>
+          <span className="chip chip-pending">Pending</span>
+          <span className="chip chip-booked">Booked</span>
+        </div>
+      </div>
 
       {/* top-left brand removed per request */}
 
       {/* Controls placed below header (normal flow) */}
-      <div style={{display:'flex',gap:12,alignItems:'center',margin:'8px 0 18px 0'}}>
+      <div className="controls-row">
         <div className="date-picker">
           <div className="date-label">Date</div>
           <div className="date-control">
@@ -200,135 +522,65 @@ export default function SlotGrid(){
           </div>
         </div>
         {/* hide top action controls when there are selected slots (we show a bottom floating panel instead) */}
-        <div style={{display: selected.length > 0 ? 'none' : 'flex', alignItems:'center',gap:12,marginLeft:8}}>
-          <div style={{fontWeight:700}}><strong>{selected.length}</strong> selected</div>
-          <button className="btn-animate" onClick={openPricingModal} disabled={selected.length===0 || loading}>
-            {loading ? 'Working...' : 'Hold Slots'}
-            <span style={{display:'inline-block',transform:'translateX(4px)'}}>🏓</span>
-          </button>
-          <button onClick={()=>{setSelected([])}} disabled={selected.length===0}>Clear</button>
-          {msg && <div className="toast-success" style={{marginLeft:12}}>{msg}</div>}
-        </div>
+        {/* Top action controls removed per request */}
       </div>
 
-      <div className="slot-grid">
-        <div className="grid-header">
-          <div className="time-col">TIME</div>
-          {courts.map(c => <div key={c.id} className="court-col">{c.name}</div>)}
-        </div>
-        <div className="grid-body">
-          {times.map(t=> (
-            <div key={t.time} className="grid-row">
-              <div className="time-col">{t.label}</div>
-              {courts.map(c=> {
-                const booked = isBooked(c.id, t.time)
-                const sel = isSelected(c.id, t.time)
-                const classes = ['cell']
-                if(booked) classes.push('booked')
-                else if(sel) classes.push('selected')
-                return (
-                  <div key={c.id} className={classes.join(' ')} onClick={()=>toggleSelect(c.id, t.time)}>
-                    {booked ? 'Booked' : (sel ? 'Selected' : t.display || t.time)}
-                  </div>
-                )
-              })}
-            </div>
-          ))}
-        </div>
-      </div>
+      <SlotGridView
+        courts={courts}
+        times={times}
+        date={date}
+        reservedMap={reservedMap}
+        isBooked={isBooked}
+        isSelected={isSelected}
+        toggleSelect={toggleSelect}
+      />
 
       {showPricingModal && (
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}}>
-          <div style={{width:420,maxWidth:'95%',background:'#fff',borderRadius:10,padding:20,boxShadow:'0 10px 40px rgba(0,0,0,0.3)'}}>
-            <h3 style={{marginTop:0}}>Complete Your Booking</h3>
-            <div style={{color:'#666',marginBottom:12}}>Enter your details to hold these slots.</div>
+        <BookingModal
+          open={showPricingModal}
+          onClose={()=>{ setShowPricingModal(false); setFormErrors({}) }}
+          selected={selected}
+          date={date}
+          pricePerSlot={PRICE_PER_SLOT}
+          courts={courts}
+          times={times}
+          fullName={fullName}
+          setFullName={setFullName}
+          email={email}
+          setEmail={setEmail}
+          phone={phone}
+          setPhone={setPhone}
+          formErrors={formErrors}
+          setFormErrors={setFormErrors}
+        />
+      )}
 
-            <div style={{background:'#f6f8f9',padding:12,borderRadius:8,marginBottom:12}}>
-              <div style={{fontSize:12,color:'#888'}}>Booking Summary</div>
-              <div style={{fontWeight:700,marginTop:6}}>{new Date(date).toLocaleDateString()}</div>
-              {selected.slice(0,4).map((s,idx)=>{
-                const court = courts.find(c=>c.id===s.courtId)
-                const courtName = court ? court.name : `Court ${s.courtId}`
-                  const timeLabel = (()=>{ 
-                    const t = times.find(t=>t.time === s.time)
-                    return t ? (t.label || t.display || s.time) : s.time
-                })()
-                return (
-                  <div key={idx} style={{display:'flex',justifyContent:'space-between',paddingTop:8}}>
-                    <div style={{fontSize:13,color:'#333'}}>{courtName} — {timeLabel} ({selected.length} slots)</div>
-                    <div style={{fontWeight:700}}>₱{PRICE_PER_SLOT * selected.length}</div>
-                  </div>
-                )
-              })}
-              <div style={{borderTop:'1px solid #e6eef0',marginTop:8,paddingTop:8,display:'flex',justifyContent:'space-between'}}>
-                <div style={{fontWeight:800}}>Total:</div>
-                <div style={{fontWeight:800}}>₱{(PRICE_PER_SLOT * selected.length).toFixed(0)}</div>
+      {showLimitModal && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <div className="limit-modal-center">
+              <div className="limit-icon">
+                <span style={{fontSize:22,color:'#d98218'}}>⚠️</span>
               </div>
-              <div style={{fontSize:11,color:'#888',marginTop:6}}>* Special pricing applied</div>
-            </div>
-
-            <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:8}}>
-              <div>
-                <input placeholder="Full Name" value={fullName} onChange={e=>setFullName(e.target.value)} style={{width:'100%',padding:'10px',borderRadius:6,border: formErrors.fullName ? '2px solid #e03b3b' : '1px solid #ddd'}} />
-                {formErrors.fullName && <div style={{color:'#e03b3b',fontSize:12,marginTop:6}}>Name is required</div>}
+              <h3 className="limit-title">Booking Limit Exceeded</h3>
+              <div className="limit-text">Maximum 6 slots per transaction. Please reduce your selection.</div>
+              <div style={{width:'100%'}}>
+                <button onClick={()=>setShowLimitModal(false)} className="limit-ok">OK</button>
               </div>
-              <div>
-                <input placeholder="Email Address" value={email} onChange={e=>setEmail(e.target.value)} style={{width:'100%',padding:'10px',borderRadius:6,border:'1px solid #ddd'}} />
-              </div>
-              <div>
-                <input placeholder="Phone Number" value={phone} onChange={e=>setPhone(e.target.value)} style={{width:'100%',padding:'10px',borderRadius:6,border:'1px solid #ddd'}} />
-              </div>
-            </div>
-
-            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
-              <button onClick={()=>{ setShowPricingModal(false) ; setFormErrors({})}} style={{padding:'8px 12px',borderRadius:8}}>Cancel</button>
-              <button onClick={()=>{
-                // validate
-                const errs = {}
-                if(!fullName || fullName.trim().length===0) errs.fullName = true
-                setFormErrors(errs)
-                if(Object.keys(errs).length>0) return
-                // store draft and navigate to payment page
-                function makeTxnId(){
-                  const a = Math.random().toString(36).substring(2,5).toUpperCase()
-                  const b = Math.random().toString(36).substring(2,5).toUpperCase()
-                  return a + '-' + b
-                }
-                const draft = {
-                  selected: selected,
-                  date: date,
-                  pricePerSlot: PRICE_PER_SLOT,
-                  courts: courts,
-                  times: times,
-                  customer: {
-                    fullName,
-                    email,
-                    phone
-                  },
-                  txnId: makeTxnId(),
-                  // expiry timestamp (ms)
-                  expiry: Date.now() + (3 * 60 * 1000)
-                }
-                sessionStorage.setItem('bookingDraft', JSON.stringify(draft))
-                // navigate to payment page
-                window.location.hash = '#/payment'
-              }} className="btn-animate" style={{background:'#2c6b67',color:'#fff',padding:'10px 12px',borderRadius:8}}>Hold Slots & Proceed to Payment</button>
             </div>
           </div>
         </div>
       )}
 
-      {showLimitModal && (
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.4)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}}>
-          <div style={{width:420,maxWidth:'95%',background:'#fff',borderRadius:10,padding:20,boxShadow:'0 10px 40px rgba(0,0,0,0.3)'}}>
-            <div style={{display:'flex',alignItems:'center',flexDirection:'column',gap:8}}>
-              <div style={{width:56,height:56,borderRadius:28,background:'#fff6e6',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid #f2d59a'}}>
-                <span style={{fontSize:22,color:'#d98218'}}>⚠️</span>
-              </div>
-              <h3 style={{margin:'6px 0'}}>Booking Limit Exceeded</h3>
-              <div style={{color:'#444',textAlign:'center',marginBottom:12}}>Maximum 6 slots per transaction. Please reduce your selection.</div>
-              <div style={{width:'100%'}}>
-                <button onClick={()=>setShowLimitModal(false)} style={{width:'100%',background:'#144b48',color:'#fff',padding:'10px 12px',borderRadius:8}}>OK</button>
+      {showCancelConfirm && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <div style={{textAlign:'center'}}>
+              <h3 style={{marginTop:0}}>Are you sure?</h3>
+              <div style={{color:'#666',marginTop:8}}>This will cancel your pending booking and release the slots so others can book them.</div>
+              <div style={{display:'flex',justifyContent:'center',gap:10,marginTop:14}}>
+                <button onClick={()=>setShowCancelConfirm(false)} className="btn">No, keep booking</button>
+                <button onClick={async ()=>{ try{ await cancelExistingBooking() }catch(_){ } setShowCancelConfirm(false) }} className="btn btn-cancel">Yes, cancel booking</button>
               </div>
             </div>
           </div>
@@ -336,28 +588,29 @@ export default function SlotGrid(){
       )}
 
       {showUndo && (
-        <div style={{position:'fixed',right:24,bottom:24,display:'flex',gap:8,alignItems:'center'}}>
-          <div className="toast-success">Slots held — <button style={{marginLeft:8}} onClick={undoRecent}>Undo</button></div>
+        <div className="undo-toast">
+          <div className="toast-success">Slots held — <button className="undo-btn" onClick={undoRecent}>Undo</button></div>
         </div>
       )}
 
-      {/* Bottom floating selected panel — appears when user has selected slots */}
+      {/* Floating bar: selected count, total, proceed button */}
       {selected.length > 0 && (
-        <div style={{position:'fixed',left:0,right:0,bottom:18,display:'flex',justifyContent:'center',pointerEvents:'none',zIndex:9998}}>
-          <div style={{width:'min(980px,95%)',pointerEvents:'auto',background:'#fff',borderRadius:10,boxShadow:'0 8px 30px rgba(0,0,0,0.12)',padding:'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
-            <div style={{display:'flex',alignItems:'center',gap:12}}>
-              <div style={{fontSize:12,color:'#666'}}>SELECTED SLOTS</div>
-              <div style={{fontWeight:800}}>{selected.length} slots</div>
-              <div style={{color:'#888'}}> / {MAX_SELECTION} max</div>
-              <div style={{marginLeft:12,color:'#666'}}>Total: <span style={{fontWeight:800}}>₱{(PRICE_PER_SLOT * selected.length).toFixed(0)}</span></div>
+        <div className="floating-bar">
+          <div className="floating-bar-inner">
+            <div className="floating-bar-left">
+              <div className="label">{selected.length} selected</div>
+              <div className="count">{selected.length} slots</div>
+              <div className="total">&nbsp; / Total: <strong>₱{(PRICE_PER_SLOT * selected.length).toFixed(0)}</strong></div>
             </div>
-            <div style={{display:'flex',alignItems:'center',gap:8}}>
-              <button onClick={()=>setSelected([])} style={{border:'none',background:'transparent',color:'#666'}}>✕</button>
-              <button onClick={openPricingModal} className="btn-animate" style={{background:'#0b4f4b',color:'#fff',padding:'10px 18px',borderRadius:8}}>Proceed to Pay ▸</button>
+            <div className="floating-bar-action">
+              <button className="btn-proceed" onClick={openPricingModal} disabled={loading}>{loading ? 'Working...' : 'Proceed to Pay'}</button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Bottom floating selected panel — appears when user has selected slots */}
+      {/* Floating selected panel removed per request */}
 
       {celebrate && <img src={Ball} className="flying-ball" alt="celebrate" />}
       {celebrate && <img src={Ball} className="flying-ball" alt="celebrate" />}
